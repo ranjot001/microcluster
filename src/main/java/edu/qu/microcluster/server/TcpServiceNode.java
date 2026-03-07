@@ -32,8 +32,8 @@ public class TcpServiceNode {
         String remote = client.getRemoteSocketAddress().toString();
         System.out.println("[TcpServiceNode] Client connected: " + remote);
 
-        // Fix 2: catch exceptions inside the handler and send an error response instead
-        // of crashing
+        // Catch exceptions inside the handler and send an error response instead
+
         try (Socket c = client;
                 BufferedReader in = new BufferedReader(new InputStreamReader(c.getInputStream()));
                 PrintWriter out = new PrintWriter(c.getOutputStream(), true)) {
