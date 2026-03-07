@@ -1,5 +1,6 @@
-package edu.qu.microcluster.server;
+package edu.qu.microcluster.archive;
 
+import edu.qu.microcluster.server.ServiceFactory;
 import edu.qu.microcluster.services.Service;
 
 public class ServiceRouter {

@@ -65,12 +65,14 @@ public class Client {
 
     //Send a JSON request and return the parsed JSON response.
     private JSONObject sendRequest(JSONObject request) throws IOException {
-        ensureConnected();
+        // Don't reconnect - reuse existing connection
         out.println(request.toString());
 
         try {
             String raw = in.readLine();
-            if (raw == null) throw new IOException("Router closed the connection.");
+            if (raw == null) {
+                throw new IOException("Router closed the connection.");
+            }
             return new JSONObject(raw);
         } catch (SocketTimeoutException e) {
             throw new IOException("Router did not respond within " + (TIMEOUT_MS / 1000) + "s.");
@@ -127,8 +129,16 @@ public class Client {
     }
 
     public void close() {
-        try { if (socket != null) socket.close(); }
-        catch (IOException ignored) {}
+        try {
+            if (socket != null && !socket.isClosed()) {
+                // Tell Router we're done
+                JSONObject disconnect = new JSONObject();
+                disconnect.put("type", "DISCONNECT");
+                out.println(disconnect.toString());
+
+                socket.close();
+            }
+        } catch (IOException ignored) {}
     }
 
     //Interactive menu
@@ -194,6 +204,11 @@ public class Client {
         client.invokeService("HMAC", "SIGN", key + "|" + msg);
     }
 
+    private static void pause(Scanner sc) {
+        System.out.print("\nPress Enter to continue...");
+        sc.nextLine();
+    }
+
     //Entry point
     public static void main(String[] args) {
         if (args.length != 2) {
@@ -234,14 +249,17 @@ public class Client {
             switch (choice) {
                 case "1":
                     client.listServices();
+                    pause(sc);  // ← Add
                     break;
 
                 case "2":
                     interactiveInvoke(client, sc);
+                    pause(sc);  // ← Add
                     break;
 
                 case "3":
                     runDemos(client);
+                    pause(sc);  // ← Add
                     break;
 
                 case "0":
@@ -250,6 +268,7 @@ public class Client {
 
                 default:
                     System.out.println("  Unknown option — try 0, 1, 2, or 3.");
+                    pause(sc);  // ← Add
             }
         }
 

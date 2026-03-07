@@ -1,4 +1,4 @@
-package edu.qu.microcluster.server;
+package edu.qu.microcluster.archive;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -27,7 +27,7 @@ public class TcpServiceNode {
         try (Socket c = client;
              BufferedReader in = new BufferedReader(new InputStreamReader(c.getInputStream()));
              PrintWriter out = new PrintWriter(c.getOutputStream(), true)) {
-
+            System.out.println("handling client");
             String line;
             while ((line = in.readLine()) != null) {
                 String trimmed = line.trim();

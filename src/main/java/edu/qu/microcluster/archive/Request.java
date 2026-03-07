@@ -1,4 +1,4 @@
-package edu.qu.microcluster.server;
+package edu.qu.microcluster.archive;
 
 public class Request {
     public final String service;
