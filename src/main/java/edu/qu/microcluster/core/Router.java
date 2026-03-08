@@ -132,7 +132,7 @@ public class Router {
 
     // TCP Server for Client Connections
     static class TCPServer extends Thread {
-        private final int TCP_PORT = 5000;
+        private final int TCP_PORT = 5050;
 
         @Override
         public void run() {
