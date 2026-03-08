@@ -3,9 +3,11 @@ package edu.qu.microcluster.archive;
 public class RequestParser {
 
     public static Request parse(String line) {
-        if (line == null) throw new IllegalArgumentException("Empty request");
+        if (line == null)
+            throw new IllegalArgumentException("Empty request");
         line = line.trim();
-        if (line.isEmpty()) throw new IllegalArgumentException("Empty request");
+        if (line.isEmpty())
+            throw new IllegalArgumentException("Empty request");
 
         String[] parts = line.split("\\|", 3);
 
@@ -19,7 +21,7 @@ public class RequestParser {
 
         if (parts.length == 2) {
             action = "DEFAULT";
-            payload = parts[2];
+            payload = parts[1];
             payload = payload.replace("\\n", "\n");
         } else {
 
@@ -28,8 +30,10 @@ public class RequestParser {
             payload = payload.replace("\\n", "\n");
         }
 
-        if (service.isEmpty()) throw new IllegalArgumentException("Missing service");
-        if (action.isEmpty()) action = "DEFAULT";
+        if (service.isEmpty())
+            throw new IllegalArgumentException("Missing service");
+        if (action.isEmpty())
+            action = "DEFAULT";
 
         return new Request(service, action, payload);
     }
