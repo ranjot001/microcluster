@@ -1,5 +1,3 @@
-Here is a **short, clean README in simple human language** you can paste directly.
-
 ````markdown
 # Microservice Cluster – Distributed Systems Project
 
