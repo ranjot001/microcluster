@@ -15,7 +15,22 @@ public class EntropyService implements Service {
         if (a.equals("ANALYZE")) {
             byte[] data = Base64.getDecoder().decode(payload);
             double e = shannonEntropy(data);
-            return "entropy=" + e;
+
+            String interpretation;
+            if (e < 3.0) {
+                interpretation = "Low randomness - predictable data";
+            } else if (e < 6.0) {
+                interpretation = "Medium randomness - some patterns";
+            } else if (e < 7.5) {
+                interpretation = "High randomness - good quality";
+            } else {
+                interpretation = "Very high randomness - excellent quality";
+            }
+
+            return String.format("%.4f", e) + "|||" +
+                    "Entropy: " + String.format("%.4f", e) + " bits/byte\n" +
+                    "Data size: " + data.length + " bytes\n\n" +
+                    interpretation;
         }
 
         if (a.equals("ANALYZE_FILE")) {
@@ -24,7 +39,21 @@ public class EntropyService implements Service {
             byte[] data = Base64.getDecoder().decode(p.getString("fileContentBase64"));
 
             double e = shannonEntropy(data);
-            String report = "Entropy: " + e;
+
+            String interpretation;
+            if (e < 3.0) {
+                interpretation = "Low randomness - predictable data";
+            } else if (e < 6.0) {
+                interpretation = "Medium randomness - some patterns";
+            } else if (e < 7.5) {
+                interpretation = "High randomness - good quality";
+            } else {
+                interpretation = "Very high randomness - excellent quality";
+            }
+
+            String report = "Entropy: " + e + "\n" +
+                    "Data size: " + data.length + " bytes\n\n" +
+                    interpretation;
 
             JSONObject result = new JSONObject();
             result.put("status", "FILE_SAVED");
