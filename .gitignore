@@ -3,3 +3,9 @@ target/
 *.class
 *.log
 .DS_Store
+
+
+src/main/java/edu/qu/microcluster/testfiles/
+src/main/java/edu/qu/microcluster/client/sp500_no_date.csv
+src/main/java/edu/qu/microcluster/client/sample.csv
+outfiles/
