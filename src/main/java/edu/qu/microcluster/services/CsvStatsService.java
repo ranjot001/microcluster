@@ -1,5 +1,8 @@
 package edu.qu.microcluster.services;
 
+import org.json.JSONObject;
+
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -7,15 +10,34 @@ import java.util.List;
 public class CsvStatsService implements Service {
 
     @Override
-    public String execute(String action, String payload) {
+    public String execute(String action, String payload) throws Exception {
         String a = norm(action);
         if (a.equals("DEFAULT")) a = "STATS";
-        if (!a.equals("STATS")) throw new IllegalArgumentException("CSV supports STATS only");
 
-        return computeStats(payload);
+        if (a.equals("STATS")) {
+            return computeStatsFromText(payload);
+        }
+
+        if (a.equals("STATS_FILE")) {
+            JSONObject p = new JSONObject(payload);
+            String fileName = p.getString("fileName");
+            byte[] bytes = java.util.Base64.getDecoder().decode(p.getString("fileContentBase64"));
+            String csvText = new String(bytes, StandardCharsets.UTF_8);
+
+            String stats = computeStatsFromText(csvText);
+
+            JSONObject result = new JSONObject();
+            result.put("status", "FILE_SAVED");
+            result.put("outputFileName", fileName + ".stats.txt");
+            result.put("outputContentBase64",
+                    java.util.Base64.getEncoder().encodeToString(stats.getBytes(StandardCharsets.UTF_8)));
+            return result.toString();
+        }
+
+        throw new IllegalArgumentException("CSV supports STATS and STATS_FILE");
     }
 
-    private String computeStats(String csvText) {
+    private String computeStatsFromText(String csvText) {
         String[] lines = csvText.trim().split("\\R");
         if (lines.length < 2) return "Not enough rows (need header + data)";
 
@@ -53,6 +75,7 @@ public class CsvStatsService implements Service {
             double std = stddev(data, mean);
 
             out.append("Column: ").append(headers[c].trim()).append("\n")
+                    .append("Count: ").append(data.size()).append("\n")
                     .append("Min: ").append(min).append("\n")
                     .append("Max: ").append(max).append("\n")
                     .append("Mean: ").append(mean).append("\n")

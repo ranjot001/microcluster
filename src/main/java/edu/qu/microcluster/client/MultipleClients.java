@@ -2,189 +2,247 @@ package edu.qu.microcluster.client;
 
 import org.json.JSONObject;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
-import java.util.Scanner;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MultipleClients {
 
-    private static final int TIMEOUT_MS = 300_000;
-    private static final AtomicInteger REQ_ID = new AtomicInteger(1);
+    private static final AtomicInteger REQUEST_ID = new AtomicInteger(1);
+    private static final int SOCKET_TIMEOUT_MS = 300_000;
 
-    private static final Path OUTPUT_DIR =
+    private static final Path CLIENT_OUTPUT_DIR =
             Path.of(System.getProperty("user.dir"), "outfiles");
 
     public static void main(String[] args) throws Exception {
-
-        if (args.length != 2) {
-            System.out.println("Usage: java MultipleClients <routerIP> <port>");
-            return;
+        if (args.length < 6) {
+            System.out.println("Usage:");
+            System.out.println("java MultipleClients <routerIP> <routerPort> <service> <action> <localFilePath> <requestCount> [threadCount] [extra1] [extra2]");
+            System.out.println();
+            System.out.println("Examples:");
+            System.out.println("java MultipleClients 127.0.0.1 5050 CSV STATS_FILE testfiles/medium_csv_10mb.csv 5 2");
+            System.out.println("java MultipleClients 127.0.0.1 5050 BASE64 ENCODE_FILE testfiles/medium_text_10mb.txt 3 1");
+            System.out.println("java MultipleClients 127.0.0.1 5050 BASE64 DECODE_FILE testfiles/medium_text_10mb.txt.b64 3 1");
+            System.out.println("java MultipleClients 127.0.0.1 5050 GZIP COMPRESS_FILE testfiles/medium_text_10mb.txt 3 1");
+            System.out.println("java MultipleClients 127.0.0.1 5050 GZIP DECOMPRESS_FILE testfiles/medium_text_10mb.txt.gz 3 1");
+            System.out.println("java MultipleClients 127.0.0.1 5050 ENTROPY ANALYZE_FILE testfiles/medium_binary_10mb.bin 3 1");
+            System.out.println("java MultipleClients 127.0.0.1 5050 HMAC SIGN_FILE testfiles/medium_binary_10mb.bin 3 1 secret123");
+            System.out.println("java MultipleClients 127.0.0.1 5050 HMAC VERIFY_FILE testfiles/medium_binary_10mb.bin 1 1 secret123 <BASE64_TAG>");
+            System.exit(1);
         }
 
         String routerIP = args[0];
-        int port = Integer.parseInt(args[1]);
+        int routerPort = Integer.parseInt(args[1]);
+        String service = args[2].toUpperCase().trim();
+        String action = args[3].toUpperCase().trim();
+        String localFilePath = args[4];
+        int requestCount = Integer.parseInt(args[5]);
+        int threadCount = args.length >= 7 ? Integer.parseInt(args[6]) : 1;
 
-        Files.createDirectories(OUTPUT_DIR);
+        String extra1 = args.length >= 8 ? args[7] : null;
+        String extra2 = args.length >= 9 ? args[8] : null;
 
-        Scanner sc = new Scanner(System.in);
+        Files.createDirectories(CLIENT_OUTPUT_DIR);
 
-        System.out.println("Service (BASE64, GZIP, HMAC, CSV, ENTROPY): ");
-        String service = sc.nextLine().trim().toUpperCase();
+        String runName = service + "_" + action + "_" + System.currentTimeMillis();
+        Path summaryFile = CLIENT_OUTPUT_DIR.resolve(runName + ".clientlog.txt");
 
-        String action = selectAction(service, sc);
+        ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+        long overallStart = System.currentTimeMillis();
 
-        System.out.print("Enter file path (client machine): ");
-        String filePath = sc.nextLine().trim();
+        for (int i = 0; i < requestCount; i++) {
+            pool.submit(() -> sendRequest(
+                    routerIP, routerPort, service, action, localFilePath, extra1, extra2, summaryFile
+            ));
+        }
 
-        System.out.print("Number of requests: ");
-        int totalRequests = Integer.parseInt(sc.nextLine());
+        pool.shutdown();
+        pool.awaitTermination(60, TimeUnit.MINUTES);
 
-        System.out.print("Concurrent clients (threads): ");
-        int threads = Integer.parseInt(sc.nextLine());
+        long overallEnd = System.currentTimeMillis();
+        String finalSummary = "\nCompleted " + requestCount + " requests in " + (overallEnd - overallStart)
+                + " ms | service=" + service + " | action=" + action + "\n";
+        System.out.println(finalSummary);
+        append(summaryFile, finalSummary);
+    }
 
-        String payload = buildPayload(service, action, filePath, sc);
-
-        ExecutorService executor = Executors.newFixedThreadPool(threads);
-
+    private static void sendRequest(
+            String routerIP,
+            int routerPort,
+            String service,
+            String action,
+            String localFilePath,
+            String extra1,
+            String extra2,
+            Path summaryFile
+    ) {
+        int requestId = REQUEST_ID.getAndIncrement();
         long start = System.currentTimeMillis();
 
-        for (int i = 0; i < totalRequests; i++) {
-            executor.submit(() -> {
-                try {
-                    sendRequest(routerIP, port, service, action, payload);
-                } catch (Exception e) {
-                    System.out.println("[ERR] " + e.getMessage());
+        try (
+                Socket socket = new Socket(routerIP, routerPort);
+                PrintWriter out = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8);
+                BufferedReader in = new BufferedReader(
+                        new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8))
+        ) {
+            socket.setSoTimeout(SOCKET_TIMEOUT_MS);
+
+            String payload = buildPayload(service, action, localFilePath, extra1, extra2);
+
+            JSONObject request = new JSONObject();
+            request.put("type", "SERVICE_REQUEST");
+            request.put("requestId", requestId);
+            request.put("service", service);
+            request.put("action", action);
+            request.put("payload", payload);
+
+            out.println(request.toString());
+
+            String responseLine = in.readLine();
+            long end = System.currentTimeMillis();
+
+            if (responseLine == null) {
+                String line = "[FAIL] requestId=" + requestId + " | no response\n";
+                System.out.print(line);
+                append(summaryFile, line);
+                return;
+            }
+
+            JSONObject response = new JSONObject(responseLine);
+            boolean success = response.optBoolean("success", false);
+
+            if (!success) {
+                String error = response.optString("error", "unknown");
+                String line = "[ERR] requestId=" + requestId + " | time=" + (end - start)
+                        + " ms | error=" + error + "\n";
+                System.out.print(line);
+                append(summaryFile, line);
+                return;
+            }
+
+            String result = response.optString("result", "");
+
+            if (looksLikeJson(result)) {
+                JSONObject resultJson = new JSONObject(result);
+                String status = resultJson.optString("status", "");
+
+                if ("FILE_SAVED".equals(status)) {
+                    String outputFileName = resultJson.getString("outputFileName");
+                    String outputContentBase64 = resultJson.getString("outputContentBase64");
+
+                    Path outputPath = uniqueOutputPath(requestId, outputFileName);
+                    saveBase64ToFile(outputContentBase64, outputPath);
+
+                    String line = "[OK] requestId=" + requestId + " | time=" + (end - start)
+                            + " ms | saved=" + outputPath.toAbsolutePath() + "\n";
+                    System.out.print(line);
+                    append(summaryFile, line);
+                    return;
                 }
-            });
-        }
+            }
 
-        executor.shutdown();
-        while (!executor.isTerminated()) {
-            Thread.sleep(100);
-        }
+            String line = "[OK] requestId=" + requestId + " | time=" + (end - start)
+                    + " ms | result=" + result + "\n";
+            System.out.print(line);
+            append(summaryFile, line);
 
-        long end = System.currentTimeMillis();
-        System.out.println("\nCompleted in " + (end - start) + " ms");
+        } catch (Exception e) {
+            long end = System.currentTimeMillis();
+            String line = "[FAIL] requestId=" + requestId + " | time=" + (end - start)
+                    + " ms | " + e.getMessage() + "\n";
+            System.out.print(line);
+            append(summaryFile, line);
+        }
     }
 
-    private static void sendRequest(String ip, int port, String service,
-                                    String action, String payload) throws Exception {
+    private static String buildPayload(
+            String service,
+            String action,
+            String localFilePath,
+            String extra1,
+            String extra2
+    ) throws Exception {
 
-        int id = REQ_ID.getAndIncrement();
+        boolean fileAction =
+                action.equals("STATS_FILE") ||
+                        action.equals("ENCODE_FILE") ||
+                        action.equals("DECODE_FILE") ||
+                        action.equals("COMPRESS_FILE") ||
+                        action.equals("DECOMPRESS_FILE") ||
+                        action.equals("SIGN_FILE") ||
+                        action.equals("VERIFY_FILE") ||
+                        action.equals("ANALYZE_FILE");
 
-        try (Socket socket = new Socket(ip, port)) {
-            socket.setSoTimeout(TIMEOUT_MS);
+        if (fileAction) {
+            Path input = Path.of(localFilePath);
+            if (!Files.exists(input)) {
+                throw new IllegalArgumentException("Local file not found: " + input.toAbsolutePath());
+            }
 
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true, StandardCharsets.UTF_8);
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
+            String fileName = input.getFileName().toString();
+            String fileContentBase64 = Base64.getEncoder().encodeToString(Files.readAllBytes(input));
 
-            JSONObject req = new JSONObject();
-            req.put("type", "SERVICE_REQUEST");
-            req.put("requestId", id);
-            req.put("service", service);
-            req.put("action", action);
-            req.put("payload", payload);
+            JSONObject p = new JSONObject();
+            p.put("fileName", fileName);
+            p.put("fileContentBase64", fileContentBase64);
 
-            long start = System.currentTimeMillis();
+            if ("HMAC".equals(service)) {
+                if ("SIGN_FILE".equals(action)) {
+                    if (extra1 == null) {
+                        throw new IllegalArgumentException("HMAC SIGN_FILE requires extra1 = key");
+                    }
+                    p.put("key", extra1);
 
-            out.println(req.toString());
+                } else if ("VERIFY_FILE".equals(action)) {
+                    if (extra1 == null || extra2 == null) {
+                        throw new IllegalArgumentException("HMAC VERIFY_FILE requires extra1 = key and extra2 = tag");
+                    }
+                    p.put("key", extra1);
+                    p.put("tag", extra2);
+                }
+            }
 
-            String response = in.readLine();
+            return p.toString();
+        }
 
-            long time = System.currentTimeMillis() - start;
+        return Files.readString(Path.of(localFilePath), StandardCharsets.UTF_8);
+    }
 
-            JSONObject resp = new JSONObject(response);
+    private static Path uniqueOutputPath(int requestId, String outputFileName) {
+        String uniqueName = requestId + "_" + outputFileName;
+        return CLIENT_OUTPUT_DIR.resolve(uniqueName);
+    }
 
-            if (resp.optBoolean("success")) {
-                String result = resp.optString("result");
-                saveOutput(id, service, action, result);
-                System.out.println("[OK] requestId=" + id + " | time=" + time + " ms");
-            } else {
-                System.out.println("[ERR] requestId=" + id + " | error=" + resp.optString("error"));
+    private static boolean looksLikeJson(String s) {
+        if (s == null) return false;
+        String t = s.trim();
+        return t.startsWith("{") && t.endsWith("}");
+    }
+
+    private static void saveBase64ToFile(String base64, Path outputPath) throws Exception {
+        byte[] bytes = Base64.getDecoder().decode(base64);
+        Files.write(outputPath, bytes);
+    }
+
+    private static void append(Path summaryFile, String line) {
+        synchronized (MultipleClients.class) {
+            try {
+                Files.writeString(summaryFile, line, StandardCharsets.UTF_8,
+                        Files.exists(summaryFile)
+                                ? java.nio.file.StandardOpenOption.APPEND
+                                : java.nio.file.StandardOpenOption.CREATE);
+            } catch (Exception e) {
+                System.err.println("Failed to write client log: " + e.getMessage());
             }
         }
-    }
-
-    private static void saveOutput(int id, String service, String action, String data) throws Exception {
-
-        String fileName = service + "_" + action + "_" + id + ".out";
-        Path output = OUTPUT_DIR.resolve(fileName);
-
-        // decode base64 if needed
-        if (action.contains("DECODE") || action.contains("DECOMPRESS")) {
-            byte[] bytes = Base64.getDecoder().decode(data);
-            Files.write(output, bytes);
-        } else {
-            Files.writeString(output, data);
-        }
-    }
-
-    private static String selectAction(String service, Scanner sc) {
-
-        System.out.println("Select Action:");
-
-        switch (service) {
-            case "BASE64":
-                System.out.println("1) ENCODE_FILE");
-                System.out.println("2) DECODE_FILE");
-                break;
-
-            case "GZIP":
-                System.out.println("1) COMPRESS_FILE");
-                System.out.println("2) DECOMPRESS_FILE");
-                break;
-
-            case "HMAC":
-                System.out.println("1) SIGN_FILE");
-                System.out.println("2) VERIFY_FILE");
-                break;
-
-            case "CSV":
-                System.out.println("1) STATS_FILE");
-                break;
-
-            case "ENTROPY":
-                System.out.println("1) ANALYZE_FILE");
-                break;
-        }
-
-        String choice = sc.nextLine();
-
-        return switch (service) {
-            case "BASE64" -> choice.equals("2") ? "DECODE_FILE" : "ENCODE_FILE";
-            case "GZIP" -> choice.equals("2") ? "DECOMPRESS_FILE" : "COMPRESS_FILE";
-            case "HMAC" -> choice.equals("2") ? "VERIFY_FILE" : "SIGN_FILE";
-            case "CSV" -> "STATS_FILE";
-            case "ENTROPY" -> "ANALYZE_FILE";
-            default -> "DEFAULT";
-        };
-    }
-
-    private static String buildPayload(String service, String action, String filePath, Scanner sc) throws Exception {
-
-        byte[] fileBytes = Files.readAllBytes(Path.of(filePath));
-        String fileB64 = Base64.getEncoder().encodeToString(fileBytes);
-
-        if (service.equals("HMAC")) {
-            System.out.print("Enter key: ");
-            String key = sc.nextLine();
-            String keyB64 = Base64.getEncoder().encodeToString(key.getBytes(StandardCharsets.UTF_8));
-
-            if (action.equals("VERIFY_FILE")) {
-                System.out.print("Enter expected tag: ");
-                String tag = sc.nextLine();
-                return keyB64 + "|" + fileB64 + "|" + tag;
-            }
-            return keyB64 + "|" + fileB64;
-        }
-
-        return fileB64;
     }
 }
