@@ -31,8 +31,7 @@ public class Client {
     private static final AtomicInteger REQ_ID = new AtomicInteger(1);
 
     // Local output folder relative to wherever client is run from
-    private static final Path CLIENT_OUTPUT_DIR =
-            Path.of(System.getProperty("user.dir"), "outfiles");
+    private static final Path CLIENT_OUTPUT_DIR = Path.of(System.getProperty("user.dir"), "outfiles");
 
     private final String routerIP;
     private final int routerPort;
@@ -178,15 +177,14 @@ public class Client {
             return;
         }
 
-        boolean fileAction =
-                action.equals("STATS_FILE") ||
-                        action.equals("ENCODE_FILE") ||
-                        action.equals("DECODE_FILE") ||
-                        action.equals("COMPRESS_FILE") ||
-                        action.equals("DECOMPRESS_FILE") ||
-                        action.equals("SIGN_FILE") ||
-                        action.equals("VERIFY_FILE") ||
-                        action.equals("ANALYZE_FILE");
+        boolean fileAction = action.equals("STATS_FILE") ||
+                action.equals("ENCODE_FILE") ||
+                action.equals("DECODE_FILE") ||
+                action.equals("COMPRESS_FILE") ||
+                action.equals("DECOMPRESS_FILE") ||
+                action.equals("SIGN_FILE") ||
+                action.equals("VERIFY_FILE") ||
+                action.equals("ANALYZE_FILE");
 
         String payload;
 
@@ -275,19 +273,19 @@ public class Client {
 
         switch (service) {
             case "BASE64":
-                actions = new String[]{"ENCODE", "DECODE", "ENCODE_FILE", "DECODE_FILE"};
+                actions = new String[] { "ENCODE", "DECODE", "ENCODE_FILE", "DECODE_FILE" };
                 break;
             case "GZIP":
-                actions = new String[]{"COMPRESS", "DECOMPRESS", "COMPRESS_FILE", "DECOMPRESS_FILE"};
+                actions = new String[] { "COMPRESS", "DECOMPRESS", "COMPRESS_FILE", "DECOMPRESS_FILE" };
                 break;
             case "HMAC":
-                actions = new String[]{"SIGN", "VERIFY", "SIGN_FILE", "VERIFY_FILE"};
+                actions = new String[] { "SIGN", "VERIFY", "SIGN_FILE", "VERIFY_FILE" };
                 break;
             case "CSV":
-                actions = new String[]{"STATS", "STATS_FILE"};
+                actions = new String[] { "STATS", "STATS_FILE" };
                 break;
             case "ENTROPY":
-                actions = new String[]{"ANALYZE", "ANALYZE_FILE"};
+                actions = new String[] { "ANALYZE", "ANALYZE_FILE" };
                 break;
             default:
                 return null;
@@ -356,7 +354,8 @@ public class Client {
     }
 
     private static boolean looksLikeJson(String s) {
-        if (s == null) return false;
+        if (s == null)
+            return false;
         String t = s.trim();
         return t.startsWith("{") && t.endsWith("}");
     }
@@ -397,8 +396,7 @@ public class Client {
         try {
             client = new Client(routerIP, routerPort);
         } catch (IOException e) {
-            System.err.println("Cannot connect to Router at "
-                    + routerIP + ":" + routerPort + " — " + e.getMessage());
+            System.err.println("Connection Failed");
             System.exit(1);
             return;
         }
