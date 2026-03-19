@@ -12,31 +12,31 @@ import org.json.JSONObject;
  * QU Micro-services Cluster — Interactive Client
  *
  * Usage:
- *   java Client <routerIP> <routerTCPPort>
- *   java Client 3.87.45.123 8000
+ * java Client <routerIP> <routerTCPPort>
+ * java Client 3.87.45.123 8000
  *
  * The client maintains a TCP connection to the Router.
  * From the menu the user can:
- *   1) List available services
- *   2) Choose any service with a chosen action + payload
- *   3) Exit
+ * 1) List available services
+ * 2) Choose any service with a chosen action + payload
+ * 3) Exit
  */
 public class Client {
 
-    private static final int    TIMEOUT_MS  = 15_000;       // socket read timeout
+    private static final int TIMEOUT_MS = 15_000; // socket read timeout
     private static final AtomicInteger REQ_ID = new AtomicInteger(1);
 
-    //TCP connection fields 
+    // TCP connection fields
     private final String routerIP;
-    private final int    routerPort;
+    private final int routerPort;
 
-    private Socket         socket;
-    private PrintWriter    out;
+    private Socket socket;
+    private PrintWriter out;
     private BufferedReader in;
 
-    //Constructor
+    // Constructor
     public Client(String routerIP, int routerPort) throws IOException {
-        this.routerIP   = routerIP;
+        this.routerIP = routerIP;
         this.routerPort = routerPort;
         connect();
     }
@@ -45,25 +45,25 @@ public class Client {
         socket = new Socket(routerIP, routerPort);
         socket.setSoTimeout(TIMEOUT_MS);
         out = new PrintWriter(socket.getOutputStream(), true);
-        in  = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-        System.out.println("[Client] Connected to Router at " + routerIP + ":" + routerPort);
+        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        System.out.println("[Client] Connected to server successfully.");
     }
 
-    //Reconnect if the socket was closed (ex: after a timeout).
+    // Reconnect if the socket was closed (ex: after a timeout).
     private void ensureConnected() {
         if (socket == null || socket.isClosed()) {
             try {
-                System.out.println("[Client] Reconnecting to Router...");
+                System.out.println("[Client] Reconnecting...");
                 connect();
             } catch (IOException e) {
-                System.err.println("[Client] Reconnect failed: " + e.getMessage());
+                System.err.println("[Client] Reconnect failed: ");
             }
         }
     }
 
-    //Network helpers
+    // Network helpers
 
-    //Send a JSON request and return the parsed JSON response.
+    // Send a JSON request and return the parsed JSON response.
     private JSONObject sendRequest(JSONObject request) throws IOException {
         // Don't reconnect - reuse existing connection
         out.println(request.toString());
@@ -71,16 +71,16 @@ public class Client {
         try {
             String raw = in.readLine();
             if (raw == null) {
-                throw new IOException("Router closed the connection.");
+                throw new IOException("Connection closed by server.");
             }
             return new JSONObject(raw);
         } catch (SocketTimeoutException e) {
-            throw new IOException("Router did not respond within " + (TIMEOUT_MS / 1000) + "s.");
+            throw new IOException("Server did not respond within " + (TIMEOUT_MS / 1000) + "s.");
         }
     }
 
-    //Services
-    //Ask the Router for the current list of available services.
+    // Services
+    // Ask the Router for the current list of available services.
     public void listServices() {
         try {
             JSONObject req = new JSONObject();
@@ -98,23 +98,23 @@ public class Client {
                 }
             }
         } catch (IOException e) {
-            System.err.println("  ERROR listing services: " + e.getMessage());
+            System.err.println("Could not retrieve services. Please try again.");
         }
     }
 
-    //Choose a service through the Router.
+    // Choose a service through the Router.
     public void invokeService(String service, String action, String payload) {
         try {
             int id = REQ_ID.getAndIncrement();
 
             JSONObject req = new JSONObject();
-            req.put("type",      "SERVICE_REQUEST");
+            req.put("type", "SERVICE_REQUEST");
             req.put("requestId", id);
-            req.put("service",   service.toUpperCase().trim());
-            req.put("action",    action.isEmpty() ? "DEFAULT" : action.toUpperCase().trim());
-            req.put("payload",   payload);
+            req.put("service", service.toUpperCase().trim());
+            req.put("action", action.isEmpty() ? "DEFAULT" : action.toUpperCase().trim());
+            req.put("payload", payload);
 
-            System.out.println("\n Sending request #" + id + " to Router...");
+            System.out.println("\n Sending request #" + id + "...");
             JSONObject resp = sendRequest(req);
 
             boolean success = resp.optBoolean("success", false);
@@ -124,7 +124,7 @@ public class Client {
                 System.out.println("Error: " + resp.optString("error", "Unknown error"));
             }
         } catch (IOException e) {
-            System.err.println("  ERROR invoking service: " + e.getMessage());
+            System.err.println("Could not invoke service. Please try again.");
         }
     }
 
@@ -138,10 +138,11 @@ public class Client {
 
                 socket.close();
             }
-        } catch (IOException ignored) {}
+        } catch (IOException ignored) {
+        }
     }
 
-    //Interactive menu
+    // Interactive menu
 
     private static void printBanner() {
         System.out.println("-----------------------------------------------");
@@ -174,11 +175,13 @@ public class Client {
 
         System.out.print("  Payload: ");
         String payload = sc.nextLine();
+        payload = payload.replace("\\n", "\n"); // allow user to input \n for newlines
 
         client.invokeService(service, action, payload);
     }
 
-    //Run a pre-built demo for every service so you can verify the cluster end-to-end.
+    // Run a pre-built demo for every service so you can verify the cluster
+    // end-to-end.
     private static void runDemos(Client client) {
         System.out.println("\n── Demo 1: BASE64 ENCODE ──");
         client.invokeService("BASE64", "ENCODE", "Hello from QU Cluster!");
@@ -209,7 +212,7 @@ public class Client {
         sc.nextLine();
     }
 
-    //Entry point
+    // Entry point
     public static void main(String[] args) {
         if (args.length != 2) {
             System.out.println("Usage: java Client <routerIP> <routerTCPPort>");
@@ -217,8 +220,8 @@ public class Client {
             System.exit(1);
         }
 
-        String routerIP   = args[0];
-        int    routerPort;
+        String routerIP = args[0];
+        int routerPort;
         try {
             routerPort = Integer.parseInt(args[1]);
         } catch (NumberFormatException e) {
@@ -233,8 +236,7 @@ public class Client {
         try {
             client = new Client(routerIP, routerPort);
         } catch (IOException e) {
-            System.err.println("Cannot connect to Router at "
-                    + routerIP + ":" + routerPort + " — " + e.getMessage());
+            System.err.println("Connection failed");
             System.exit(1);
             return;
         }
@@ -249,17 +251,17 @@ public class Client {
             switch (choice) {
                 case "1":
                     client.listServices();
-                    pause(sc);  // ← Add
+                    pause(sc); // ← Add
                     break;
 
                 case "2":
                     interactiveInvoke(client, sc);
-                    pause(sc);  // ← Add
+                    pause(sc); // ← Add
                     break;
 
                 case "3":
                     runDemos(client);
-                    pause(sc);  // ← Add
+                    pause(sc); // ← Add
                     break;
 
                 case "0":
@@ -268,7 +270,7 @@ public class Client {
 
                 default:
                     System.out.println("  Unknown option — try 0, 1, 2, or 3.");
-                    pause(sc);  // ← Add
+                    pause(sc); // ← Add
             }
         }
 
@@ -276,4 +278,3 @@ public class Client {
         System.out.println("Goodbye!");
     }
 }
-

@@ -156,8 +156,7 @@ public class Router {
         private void handleClient(Socket socket) {
             try {
                 BufferedReader in = new BufferedReader(
-                        new InputStreamReader(socket.getInputStream())
-                );
+                        new InputStreamReader(socket.getInputStream()));
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
 
                 String requestLine;
@@ -167,7 +166,7 @@ public class Router {
                     System.out.println("Received from client: " + requestLine);
 
                     if (requestLine.trim().isEmpty()) {
-                        continue;  // Skip empty lines
+                        continue; // Skip empty lines
                     }
 
                     JSONObject request = new JSONObject(requestLine);
@@ -204,7 +203,8 @@ public class Router {
                 System.err.println("Error handling client: " + e.getMessage());
                 try {
                     socket.close();
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
             }
         }
 
@@ -254,8 +254,7 @@ public class Router {
                 JSONObject serviceResponse = forwardToServiceNode(
                         serviceInfo.ipAddress,
                         serviceInfo.port,
-                        serviceRequest
-                );
+                        serviceRequest);
 
                 return serviceResponse;
 
@@ -264,7 +263,7 @@ public class Router {
                 error.put("type", "SERVICE_RESPONSE");
                 error.put("requestId", request.optInt("requestId", -1));
                 error.put("success", false);
-                error.put("error", "Router error: " + e.getMessage());
+                error.put("error", "Request failed");
                 return error;
             }
         }
@@ -278,8 +277,7 @@ public class Router {
 
                 PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
                 BufferedReader in = new BufferedReader(
-                        new InputStreamReader(socket.getInputStream())
-                );
+                        new InputStreamReader(socket.getInputStream()));
 
                 // Send request
                 out.println(request.toString());
@@ -300,7 +298,7 @@ public class Router {
                 error.put("type", "SERVICE_RESPONSE");
                 error.put("requestId", request.optInt("requestId", -1));
                 error.put("success", false);
-                error.put("error", "Service timeout - node not responding");
+                error.put("error", "Request timed out");
                 return error;
 
             } catch (Exception e) {
@@ -308,7 +306,7 @@ public class Router {
                 error.put("type", "SERVICE_RESPONSE");
                 error.put("requestId", request.optInt("requestId", -1));
                 error.put("success", false);
-                error.put("error", "Failed to contact service: " + e.getMessage());
+                error.put("error", "Request failed. Please try again.");
                 return error;
 
             } finally {
@@ -334,7 +332,7 @@ public class Router {
         HeartbeatChecker checker = new HeartbeatChecker();
         checker.start();
 
-        // Start TCP server thread  ← ADDED!
+        // Start TCP server thread ← ADDED!
         TCPServer tcpServer = new TCPServer();
         tcpServer.start();
 

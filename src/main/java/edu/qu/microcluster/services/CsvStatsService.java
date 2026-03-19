@@ -9,29 +9,35 @@ public class CsvStatsService implements Service {
     @Override
     public String execute(String action, String payload) {
         String a = norm(action);
-        if (a.equals("DEFAULT")) a = "STATS";
-        if (!a.equals("STATS")) throw new IllegalArgumentException("CSV supports STATS only");
+        if (a.equals("DEFAULT"))
+            a = "STATS";
+        if (!a.equals("STATS"))
+            throw new IllegalArgumentException("CSV supports STATS only");
 
         return computeStats(payload);
     }
 
     private String computeStats(String csvText) {
         String[] lines = csvText.trim().split("\\R");
-        if (lines.length < 2) return "Not enough rows (need header + data)";
+        if (lines.length < 2)
+            return "Not enough rows (need header + data)";
 
         String[] headers = lines[0].trim().split(",");
         int cols = headers.length;
 
         List<List<Double>> columns = new ArrayList<>();
-        for (int i = 0; i < cols; i++) columns.add(new ArrayList<>());
+        for (int i = 0; i < cols; i++)
+            columns.add(new ArrayList<>());
 
         for (int i = 1; i < lines.length; i++) {
             String line = lines[i].trim();
-            if (line.isEmpty()) continue;
+            if (line.isEmpty())
+                continue;
 
             String[] values = line.split(",", -1);
             if (values.length != cols) {
-                throw new IllegalArgumentException("Row " + (i + 1) + " has " + values.length + " cols, expected " + cols);
+                throw new IllegalArgumentException(
+                        "Row " + (i + 1) + " has " + values.length + " cols, expected " + cols);
             }
 
             for (int j = 0; j < cols; j++) {
@@ -42,7 +48,8 @@ public class CsvStatsService implements Service {
         StringBuilder out = new StringBuilder();
         for (int c = 0; c < cols; c++) {
             List<Double> data = columns.get(c);
-            if (data.isEmpty()) continue;
+            if (data.isEmpty())
+                continue;
 
             Collections.sort(data);
 
@@ -65,13 +72,15 @@ public class CsvStatsService implements Service {
 
     private double mean(List<Double> x) {
         double s = 0;
-        for (double v : x) s += v;
+        for (double v : x)
+            s += v;
         return s / x.size();
     }
 
     private double median(List<Double> x) {
         int n = x.size();
-        if (n % 2 == 1) return x.get(n / 2);
+        if (n % 2 == 1)
+            return x.get(n / 2);
         return (x.get(n / 2 - 1) + x.get(n / 2)) / 2.0;
     }
 
