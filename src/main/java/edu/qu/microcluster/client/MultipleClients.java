@@ -157,14 +157,20 @@ public class MultipleClients {
 
         String choice = sc.nextLine();
 
-        return switch (service) {
-            case "BASE64" -> choice.equals("2") ? "DECODE_FILE" : "ENCODE_FILE";
-            case "GZIP" -> choice.equals("2") ? "DECOMPRESS_FILE" : "COMPRESS_FILE";
-            case "HMAC" -> choice.equals("2") ? "VERIFY_FILE" : "SIGN_FILE";
-            case "CSV" -> "STATS_FILE";
-            case "ENTROPY" -> "ANALYZE_FILE";
-            default -> "DEFAULT";
-        };
+        switch (service) {
+            case "BASE64":
+                return choice.equals("2") ? "DECODE_FILE" : "ENCODE_FILE";
+            case "GZIP":
+                return choice.equals("2") ? "DECOMPRESS_FILE" : "COMPRESS_FILE";
+            case "HMAC":
+                return choice.equals("2") ? "VERIFY_FILE" : "SIGN_FILE";
+            case "CSV":
+                return "STATS_FILE";
+            case "ENTROPY":
+                return "ANALYZE_FILE";
+            default:
+                return "DEFAULT";
+        }
     }
 
     private static String buildPayload(String service, String action, String filePath, Scanner sc) throws Exception {
