@@ -55,7 +55,7 @@ public class Client {
 
         Files.createDirectories(CLIENT_OUTPUT_DIR);
 
-        System.out.println("[Client] Connected to Router at " + routerIP + ":" + routerPort);
+        System.out.println("[Client] Connected");
         System.out.println("[Client] Local outputs will be saved in: " + CLIENT_OUTPUT_DIR.toAbsolutePath());
     }
 
@@ -105,7 +105,7 @@ public class Client {
             req.put("action", action == null || action.isBlank() ? "DEFAULT" : action.toUpperCase().trim());
             req.put("payload", payload);
 
-            System.out.println("\nSending request #" + id + " to Router...");
+            System.out.println("\nSending request #" + id);
             JSONObject resp = sendRequest(req);
 
             boolean success = resp.optBoolean("success", false);
